@@ -1,3 +1,9 @@
+# v02 appearance correction
+
+- Replaced the smooth green horizon band with higher, multiscale mountain ridges and cooler distant foothills in CUDA.
+- Added variation to outer valley slopes while retaining continuous section edges.
+- Reduced the overly bright foliage albedo and varied conifer branch angles/heights with stable seeds.
+
 # v02
 
 CUDA realism pass.

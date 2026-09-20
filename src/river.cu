@@ -116,7 +116,10 @@ __device__ float terrainNoise(const float *World, float x, float z) {
 __device__ float riverGround(const float *World, float x, float z) {
   float d = fmaxf(0.0f, channelDistance(World, x, z) + .9f);
   return riverDatum(World, x, z) - channelDepth(World, z) +
-         powf(d, 1.10f) * .70f +
+         powf(d, 1.10f) * .70f *
+             (1.0f - smooth(8.0f, 45.0f, d) * .30f) +
+         smooth(8.0f, 26.0f, d) *
+             terrainNoise(World, x * .43f + 53.0f, z) * 2.1f +
          terrainNoise(World, x, z) * fminf(1.0f, d * .22f);
 }
 // Same immutable rock descriptors feed both the solver and the visible
@@ -529,10 +532,11 @@ __global__ void foliageVertices(const float *World, const float *Trees,
   int card = k / 4, corner = k % 4, t = card / 96, b = card % 96, layer = b / 8;
   float h = Trees[t * 4 + 3], rnd = randomRiver(World, card * 5 + 8),
         theta = (float)(b % 8) * .78539816f + (float)layer * 2.4f +
-                randomRiver(World, t + 41) * 6.28f;
+                randomRiver(World, t + 41) * 6.28f +
+                (randomRiver(World, card + 1721) - .5f) * .5f;
   float species = randomRiver(World, t + 11041),
         crownBase = .10f + randomRiver(World, t + 11042) * .28f;
-  float f = crownBase + (float)layer * (1.0f - crownBase) / 12.0f,
+  float f = crownBase + ((float)layer + randomRiver(World, card + 1761) * .7f) * (1.0f - crownBase) / 12.0f,
         radius = h * powf(1.0f - f, .6f + species * .8f) *
                  (.16f + species * .23f) *
                  (.75f + randomRiver(World, card * 5 + 1) * .5f);

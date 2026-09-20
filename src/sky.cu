@@ -17,7 +17,7 @@ __global__ void generateSky(const float *World, unsigned int *Sky, int width,
   float elev = powf(fmaxf(0.0f, y), .42f),
         seed = boundaryRandom(World, 0, 993) * 41.0f;
   float r = .64f - .48f * elev, g = .76f - .41f * elev, b = .85f - .29f * elev;
-  float px = x / fmaxf(.12f, y) * 1.7f, pz = z / fmaxf(.12f, y) * 1.7f;
+  float px = x / (fmaxf(0.0f, y) + .18f) * 2.8f, pz = z / (fmaxf(0.0f, y) + .18f) * 2.8f;
   float cloud = skyCloud(px, pz, seed),
         cover = smooth(.46f, .66f, cloud) * smooth(.015f, .14f, y);
   float light = cap(
@@ -26,12 +26,14 @@ __global__ void generateSky(const float *World, unsigned int *Sky, int width,
   g = g * (1.0f - cover) + (.39f + light * .56f) * cover;
   b = b * (1.0f - cover) + (.48f + light * .47f) * cover;
   float ax = cosf(lon), az = sinf(lon);
-  float ridge = .065f + noiseValue(ax * 3.0f + seed, az * 3.0f, 128) * .13f +
-                fabsf(sinf(lon * 11.0f + seed)) * .018f;
+  // Angular multiscale ridges avoid a single smooth green horizon strip.
+  float ridge = .12f + noiseValue(ax * 4.0f + seed, az * 4.0f, 128) * .18f +
+                noiseValue(ax * 13.0f + seed, az * 13.0f, 128) * .065f +
+                noiseValue(ax * 43.0f, az * 43.0f + seed, 128) * .023f;
   float ridgeNear = .025f + noiseValue(ax * 5.0f + seed, az * 5.0f, 128) * .07f;
   float mountain = 1.0f - smooth(ridge - .0015f, ridge + .0015f, y);
-  float grain = skyCloud(ax * 17.0f + az * 9.0f, y * 65.0f, seed);
-  float stone = .17f + grain * .22f;
+  float grain = skyCloud(ax * 67.0f + az * 39.0f + y * 24.0f, y * 165.0f, seed);
+  float stone = .20f + grain * .18f;
   float snow = smooth(ridge * .72f, ridge * .95f, y + (grain - .5f) * .055f);
   float mr = stone * (1.0f - snow) + .72f * snow,
         mg = (stone + .04f) * (1.0f - snow) + .77f * snow,
@@ -40,9 +42,9 @@ __global__ void generateSky(const float *World, unsigned int *Sky, int width,
   g = g * (1.0f - mountain) + mg * mountain;
   b = b * (1.0f - mountain) + mb * mountain;
   float foothill = 1.0f - smooth(ridgeNear - .002f, ridgeNear + .002f, y);
-  r = r * (1.0f - foothill) + (.06f + grain * .06f) * foothill;
-  g = g * (1.0f - foothill) + (.09f + grain * .085f) * foothill;
-  b = b * (1.0f - foothill) + (.075f + grain * .065f) * foothill;
+  r = r * (1.0f - foothill) + (.13f + grain * .035f) * foothill;
+  g = g * (1.0f - foothill) + (.17f + grain * .04f) * foothill;
+  b = b * (1.0f - foothill) + (.19f + grain * .04f) * foothill;
   unsigned int cr = (unsigned int)(cap(r, 0.0f, 1.0f) * 255.0f),
                cg = (unsigned int)(cap(g, 0.0f, 1.0f) * 255.0f),
                cb = (unsigned int)(cap(b, 0.0f, 1.0f) * 255.0f);
@@ -66,9 +68,9 @@ __global__ void generateCanopy(const float *World, unsigned int *Canopy,
   float coverage =
       fmaxf(stem, needles) * (1.0f - smooth(span - .02f, span, fabsf(v)));
   float light = .7f + noise * .5f;
-  unsigned int r = (unsigned int)(.12f * light * 255.0f),
-               g = (unsigned int)(.22f * light * 255.0f),
-               b = (unsigned int)(.065f * light * 255.0f),
+  unsigned int r = (unsigned int)(.045f * light * 255.0f),
+               g = (unsigned int)(.082f * light * 255.0f),
+               b = (unsigned int)(.041f * light * 255.0f),
                a = (unsigned int)(cap(coverage, 0.0f, 1.0f) * 255.0f);
   Canopy[k] = r | (g << 8) | (b << 16) | (a << 24);
 }
