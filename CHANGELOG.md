@@ -1,3 +1,17 @@
+# v02
+
+CUDA realism pass.
+
+- CUDA-generated sky, clouds, distant mountain backdrop and conifer needle atlas; no external sky image.
+- Larger seeded river bends and higher valley sides, with heavy fog reduced to light atmosphere.
+- Smoothly varying channel widths and depths; seeded shallow rapids, stepped cascades and concentrated drops.
+- Wider 257 × 441 simulation grid and 180 candidate trees per section.
+- Softer flow-aligned foam and water detail; reflection uses the generated environment.
+- Deterministic world selection through `?seed=42`.
+- Preserved free flight, 60 FPS ceiling, pooled incremental loading and channel-aware vegetation placement.
+
+Validation: all 26 CUDA entry points compile; browser physics, camera, section continuity, coupling and vegetation checks pass. Streaming and environment checks are recorded in reports. Performance remains device-dependent. CUDA source runs through the reference WebShader compiler on WebGPU, not native NVIDIA CUDA.
+
 # v01
 
 First published Mountain River release.

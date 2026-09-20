@@ -1,8 +1,8 @@
 {
   "gpu": {
     "finite": true,
-    "min": -8.995878219604492,
-    "max": 0.5826523303985596
+    "min": -8.83781623840332,
+    "max": 0.4481186270713806
   },
   "physics": {
     "lake": {
@@ -21,13 +21,13 @@
     },
     "river": {
       "finite": true,
-      "maxDepth": 2.771775007247925,
+      "maxDepth": 1.9092421531677246,
       "minDepth": 0,
-      "maxDepthChange": 2.567199721932411,
-      "foamSum": 1697.683321249753,
-      "maxTransverseVelocity": 2.9874558448791504,
-      "wetRockCells": 851,
-      "seconds": 36.14166666666526,
+      "maxDepthChange": 1.7578878477215767,
+      "foamSum": 1230.5198799319624,
+      "maxTransverseVelocity": 2.9501328468322754,
+      "wetRockCells": 621,
+      "seconds": 36.133333333331926,
       "perFrameUploadBytes": 0
     }
   },
@@ -35,45 +35,45 @@
     "idleStable": true,
     "releaseStops": true,
     "flightWhileWaterPaused": true,
-    "normalDistance": 2.9335999999999967,
-    "boostDistance": 11.555200000000013,
+    "normalDistance": 2.9327999999999617,
+    "boostDistance": 11.737599999999555,
     "dragLook": true,
     "scrollFlight": true,
     "interfaceFocusRespected": true
   },
   "motion": {
     "simulatedSeconds": 1.0166666666667172,
-    "wallSeconds": 1.0145999999940396,
-    "rate": 1.002036927530741
+    "wallSeconds": 1.00539999999851,
+    "rate": 1.01120615343965
   },
   "impacts": {
-    "active": 674,
+    "active": 656,
     "rockContactParticles": 9,
-    "waterfallParticles": 665,
+    "waterfallParticles": 647,
     "layers": [
-      387,
-      112,
-      175
+      442,
+      142,
+      72
     ],
-    "minSize": 0.009088322520256042,
-    "maxSize": 0.965542197227478,
+    "minSize": 0.009061690419912338,
+    "maxSize": 0.9713899493217468,
     "noFlowVisible": 0,
-    "dryBankRocks": 38,
-    "wetContactRocks": 41,
-    "uniqueRockSeeds": 102,
+    "dryBankRocks": 27,
+    "wetContactRocks": 44,
+    "uniqueRockSeeds": 104,
     "falseWetWithoutWater": 0
   },
   "sections": {
-    "terrainError": 9.5367431640625e-7,
-    "waterError": 5.960464477539062e-7,
+    "terrainError": 0.000003814697265625,
+    "waterError": 7.152557373046875e-7,
     "deterministic": true,
     "different": true,
     "cameraDelta": 0.020000000000010232,
     "wetnessBuffersPreserved": true
   },
   "vegetation": {
-    "trees": 600,
-    "grass": 14397,
+    "trees": 1080,
+    "grass": 14398,
     "wetTrees": 0,
     "wetGrass": 0,
     "minHeight": 3.5451643466949463,
@@ -91,8 +91,8 @@
   "errors": [],
   "snapshot": {
     "ready": true,
-    "time": 37.124999999998536,
-    "steps": 4455,
+    "time": 37.13333333333187,
+    "steps": 4456,
     "travel": 72,
     "paused": false,
     "flow": 1.8,

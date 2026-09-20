@@ -1,6 +1,7 @@
 // Render resources are prepared once behind the loading screen. Streaming only
 // regenerates CUDA data in a hidden spare slot, in bounded batches across
 // frames.
+import {createEnvironment} from './environment.js';
 import {makeWorld} from './scene.js';
 import {RiverSolver} from './solver.js';
 
@@ -22,14 +23,18 @@ export class RiverSections {
     };
   }
   async initialize() {
+    this.environment = createEnvironment(this.renderer, this.template);
     const ids = [ 0, -1, 1, -2, 2, -3, 3, null, null, null ];
     for (const id of ids) {
+      document.querySelector("#loading span").textContent =
+          `Preparing river surroundings ${this.stats.poolSize + 1}/${
+              ids.length}...`;
       const solver = id === 0 ? this.template
                               : new RiverSolver(this.template.runtime,
                                                 this.template.kernels, id ?? 0,
                                                 this.template.seed);
-      const world =
-          makeWorld(this.renderer, solver, this.scene, this.sun, id === 0);
+      const world = makeWorld(this.renderer, solver, this.scene, this.sun,
+                              id === 0, this.environment);
       solver.initialize();
       if (id !== null)
         await solver.warmup();

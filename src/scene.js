@@ -24,9 +24,9 @@ import {
   abs,
   transformNormalToView
 } from 'three/tsl';
-import {GRID, SPRAY_COUNT} from './solver.js';
+import {GRID, SPRAY_COUNT, TREE_COUNT} from './solver.js';
 import {riverMaterials} from './materials.js';
-const ROCK_VERTICES = 105 * 65 * 25, FOLIAGE_VERTICES = 100 * 96 * 4;
+const ROCK_VERTICES = 105 * 65 * 25, FOLIAGE_VERTICES = TREE_COUNT * 96 * 4;
 function radialTopology() {
   const g = new T.BufferGeometry(), indices = [];
   g.setAttribute('position',
@@ -54,7 +54,8 @@ function foliageTopology(count = FOLIAGE_VERTICES) {
   g.setIndex(indices);
   return g;
 }
-export function makeWorld(renderer, solver, scene, sunLight, withSky = true) {
+export function makeWorld(renderer, solver, scene, sunLight, withSky = true,
+                          environment) {
   const attributes = [];
   const runtime = solver.runtime, n = solver.n;
   function shared(key, count) {
@@ -68,7 +69,8 @@ export function makeWorld(renderer, solver, scene, sunLight, withSky = true) {
   }
   const surface = shared('Surface', n * 4),
         terrain = shared('Terrain', 341 * 221 * 2),
-        trees = shared('Trees', 100), spray = shared('Spray', SPRAY_COUNT * 2),
+        trees = shared('Trees', TREE_COUNT),
+        spray = shared('Spray', SPRAY_COUNT * 2),
         rocks = shared('RockMesh', ROCK_VERTICES * 2),
         rockWet = shared('RockWet', 105),
         foliage = shared('Foliage', FOLIAGE_VERTICES * 2),
@@ -99,7 +101,7 @@ export function makeWorld(renderer, solver, scene, sunLight, withSky = true) {
         rp = rocks.element(vertexIndex.mul(2)),
         rn = rocks.element(vertexIndex.mul(2).add(1));
   const shaders = riverMaterials(
-      noiseTex, clock, sunLight, wp, wn, wf, tp, tn, rp, rn,
+      noiseTex, clock, sunLight, environment, wp, wn, wf, tp, tn, rp, rn,
       surface.element(vertexIndex.mul(4).add(3)),
       rockWet.element(float(vertexIndex).div(65 * 25).floor().toUint()));
   // Reject submerged roots using the live CUDA water surface, including forks.
@@ -115,20 +117,13 @@ export function makeWorld(renderer, solver, scene, sunLight, withSky = true) {
   const fp = foliage.element(vertexIndex.mul(2)),
         fn = foliage.element(vertexIndex.mul(2).add(1));
   const pine = new T.MeshStandardNodeMaterial(
-      {roughness : .95, side : T.DoubleSide, alphaTest : .48});
+      {roughness : .95, side : T.DoubleSide, alphaTest : .16});
   pine.positionNode = fp.xyz;
   pine.normalNode = transformNormalToView(varying(fn.xyz).normalize());
-  const cardUV = uv(), lateral = abs(cardUV.y.sub(.5)).mul(2),
-        shape = float(1).sub(cardUV.x.mul(.85)),
-        ragged = noise(cardUV.mul(vec2(.32, .19)).add(varying(fp.w))).g;
-  const needle = sin(cardUV.x.mul(95).add(cardUV.y.mul(42))).mul(.05);
-  pine.opacityNode =
-      smoothstep(shape.add(.08), shape.sub(.18),
-                 lateral.add(ragged.sub(.5).mul(.6)).add(needle));
-  pine.opacityNode = pine.opacityNode.mul(varying(rootDry(treeRoot.xyz)));
-  pine.colorNode = mix(color('#132b21'), color('#5d6d43'),
-                       varying(fp.w).mul(.5).add(varying(fn.w).mul(.3)))
-                       .mul(ragged.mul(.35).add(.75));
+  const canopy = texture(environment.canopy, uv());
+  pine.opacityNode = canopy.a.mul(varying(rootDry(treeRoot.xyz)));
+  pine.colorNode = canopy.rgb.mul(varying(fp.w).mul(.40).add(.78))
+                       .mul(varying(fn.w).mul(.25).add(.85));
   const tr = trees.element(instanceIndex),
         trunk = new T.MeshStandardNodeMaterial({roughness : 1, alphaTest : .5});
   trunk.opacityNode = varying(rootDry(tr.xyz));
@@ -192,7 +187,7 @@ export function makeWorld(renderer, solver, scene, sunLight, withSky = true) {
     const g = new T.Group(), land = new T.Mesh(terrainGeo, shaders.ground),
           rock = new T.Mesh(rockGeo, shaders.rock),
           leaves = new T.Mesh(pineGeo, pine),
-          trunks = new T.InstancedMesh(trunkGeo, trunk, 100),
+          trunks = new T.InstancedMesh(trunkGeo, trunk, TREE_COUNT),
           water = new T.Mesh(waterGeo, shaders.water),
           sprayMesh = new T.InstancedMesh(sprayGeo, mist, SPRAY_COUNT);
     land.receiveShadow = rock.receiveShadow = leaves.receiveShadow =

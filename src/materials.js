@@ -3,6 +3,7 @@
 import * as T from 'three/webgpu';
 import {
   Fn,
+  equirectUV,
   normalLocal,
   If,
   Discard,
@@ -46,25 +47,16 @@ import {
   transformNormalToView,
   shadow
 } from 'three/tsl';
-export function riverMaterials(noiseTex, clock, sunLight, wp, wn, wf, tp, tn,
-                               rp, rn, impactField, rockContact) {
+export function riverMaterials(noiseTex, clock, sunLight, environment, wp, wn,
+                               wf, tp, tn, rp, rn, impactField, rockContact) {
   const worldOrigin = uniform(new T.Vector3());
   const stablePosition = positionWorld.add(worldOrigin);
   const noise = p => texture(noiseTex, p),
         sun = uniform(new T.Vector3(-.65, .72, .24).normalize()),
         overcast = uniform(.16), sunColor = uniform(new T.Color('#fff0d2'));
-  const sky = Fn(([ direction ]) => {
-    const d = normalize(direction), e = max(d.y, 0), s = max(dot(d, sun), 0);
-    const base = mix(color('#b2c4ca'), color('#4c7897'), pow(e, .4)).toVar();
-    const cloudP =
-        d.xz.div(max(.09, d.y)).mul(.13).add(vec2(clock.mul(.00004), 0));
-    const clouds =
-        noise(cloudP).r.mul(.7).add(noise(cloudP.mul(2.7)).r.mul(.3));
-    const cover = smoothstep(.53, .66, clouds).mul(smoothstep(.015, .15, d.y));
-    base.assign(mix(base, color('#e1e3dc'), cover.mul(.8)));
-    base.addAssign(sunColor.mul(pow(s, 100)).mul(.25));
-    return mix(color('#364338'), base, smoothstep(-.16, .03, d.y));
-  });
+  const sky =
+      Fn(([ direction ]) =>
+             texture(environment.sky, equirectUV(normalize(direction))).rgb);
   const skyMaterial = new T.MeshBasicNodeMaterial(
       {side : T.BackSide, depthWrite : false, fog : false});
   skyMaterial.colorNode = sky(positionWorld.sub(cameraPosition));
@@ -120,7 +112,7 @@ export function riverMaterials(noiseTex, clock, sunLight, wp, wn, wf, tp, tn,
           .add(noise(stablePosition.xz.mul(scale)).mul(weight.y))
           .add(noise(stablePosition.xy.mul(scale)).mul(weight.z));
   const stoneMacro = tri(.032).r, middle = tri(.25).r, meso = tri(.36).g,
-        grain = tri(1.5).g,
+        grain = tri(.8).g,
         fracture = float(1).sub(smoothstep(.015, .08, abs(meso.sub(.5))));
   const contact = varying(rockContact);
   const wet =
@@ -136,13 +128,13 @@ export function riverMaterials(noiseTex, clock, sunLight, wp, wn, wf, tp, tn,
                     .mul(mix(.7, 1.17, middle))
                     .mul(mix(.79, 1.1, meso))
                     .mul(mix(1, .78, fracture))
-                    .mul(mix(.9, 1.09, grain));
+                    .mul(mix(.96, 1.04, grain));
   rock.colorNode =
       mix(stone, color('#455335'), moss.mul(.62)).mul(mix(1, .43, wet));
   rock.roughnessNode = mix(float(.92), float(.28), wet);
   rock.normalNode = perturb(rockN, middle.mul(.022)
                                        .add(meso.mul(.01))
-                                       .add(grain.mul(.003))
+                                       .add(grain.mul(.0015))
                                        .sub(fracture.mul(.003)));
   rock.envNode = sky(reflectVector).mul(.2);
   const water = new T.MeshBasicNodeMaterial(
@@ -164,8 +156,14 @@ export function riverMaterials(noiseTex, clock, sunLight, wp, wn, wf, tp, tn,
           phaseBlend = abs(phase0.mul(2).sub(1));
     const uv0 = stablePosition.xz.sub(flow.zw.mul(phase0.mul(.85))),
           uv1 = stablePosition.xz.sub(flow.zw.mul(phase1.mul(.85)));
-    const flowNoise = scale =>
-        mix(noise(uv0.mul(scale)), noise(uv1.mul(scale)), phaseBlend);
+    const flowNoise = scale => {
+      const trail = flow.zw.mul(.035 * scale);
+      const sample = p => noise(p.mul(scale))
+                              .mul(.5)
+                              .add(noise(p.mul(scale).add(trail)).mul(.25))
+                              .add(noise(p.mul(scale).sub(trail)).mul(.25));
+      return mix(sample(uv0), sample(uv1), phaseBlend);
+    };
     const coarse = flowNoise(.07).rg.sub(.5), small = flowNoise(.28).ga.sub(.5);
     const micro = coarse.mul(.28)
                       .add(small.mul(.16))
@@ -176,7 +174,7 @@ export function riverMaterials(noiseTex, clock, sunLight, wp, wn, wf, tp, tn,
           ndv = clamp(dot(normal, eye), .015, 1),
           fresnel = float(.021).add(pow(float(1).sub(ndv), 5).mul(.979));
     const n0 = flowNoise(.075).r, n1 = flowNoise(.35).r, n2 = flowNoise(1.35).g;
-    const density = state.w.mul(.80),
+    const density = state.w.mul(.92),
           lace = n0.mul(.36).add(n1.mul(.42)).add(n2.mul(.22)),
           threshold = float(.74).sub(density.mul(.19)),
           aa = max(.018, fwidth(lace).mul(.8));
@@ -187,7 +185,7 @@ export function riverMaterials(noiseTex, clock, sunLight, wp, wn, wf, tp, tn,
                    float(.032).add(density.mul(.008)), abs(n1.sub(.5))));
     const patches = smoothstep(.42, .65, n0.add(density.mul(.10)));
     const foamLace = filaments.mul(smoothstep(.12, .7, density))
-                         .mul(.50)
+                         .mul(.12)
                          .add(coverage.mul(smoothstep(.4, .85, density)))
                          .mul(patches)
                          .mul(smoothstep(.005, .04, depth))
@@ -202,7 +200,9 @@ export function riverMaterials(noiseTex, clock, sunLight, wp, wn, wf, tp, tn,
     const impactWhite =
         varying(impactField.x).mul(flowNoise(.21).r.mul(.34).add(.5));
     const foam =
-        max(impactWhite,
+        max(impactWhite.add(smoothstep(.40, .78, density)
+                                .mul(smoothstep(.32, .62, n0))
+                                .mul(.48)),
             max(foamLace,
                 falling.mul(smoothstep(.18, .68, aeration).mul(.65).add(.18))));
     const screenNormal = cameraViewMatrix.mul(vec4(normal, 0)).xy,
@@ -252,8 +252,8 @@ export function riverMaterials(noiseTex, clock, sunLight, wp, wn, wf, tp, tn,
                       mix(color('#afc5c9'), color('#f2f3e9'), visibility)
                           .mul(ndl.mul(.22).add(.78)),
                       foam));
-    result.assign(
-        mix(result, color('#b1c2c7'), float(1).sub(exp(distance.mul(-.0016)))));
+    result.assign(mix(result, color('#b1c2c7'),
+                      float(1).sub(exp(distance.mul(-.00025)))));
     return vec4(result, smoothstep(0, .008, depth));
   })();
   return {

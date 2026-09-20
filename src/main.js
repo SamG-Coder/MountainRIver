@@ -7,7 +7,7 @@ import {RiverSolver} from './solver.js';
 
 const $ = id => document.getElementById(id), scene = new T.Scene();
 scene.background = new T.Color('#a6bdc0');
-scene.fog = new T.FogExp2('#b1c2c7', .007);
+scene.fog = new T.FogExp2('#b1c2c7', .0006);
 const camera = new T.PerspectiveCamera(58, innerWidth / innerHeight, .2, 1100);
 let renderer, solver, world, navigation, travel = 94, paused = false, view = 0,
                                          light = 0, ready = false;
@@ -55,7 +55,9 @@ async function boot() {
     throw Error('WebGPU device unavailable.');
   $('viewport').appendChild(renderer.domElement);
   navigation = new FreeCamera(camera, renderer.domElement);
-  solver = await RiverSolver.create(renderer.backend.device);
+  const requestedSeed=Number(new URLSearchParams(location.search).get('seed') ?? 1741);
+  const seed=Number.isSafeInteger(requestedSeed)&&Math.abs(requestedSeed)<16777216?requestedSeed:1741;
+  solver = await RiverSolver.create(renderer.backend.device,seed);
   solver.runtime.onError = fail;
   world = new RiverSections(renderer, scene, sun, solver, camera);
   document.querySelector('#loading span').textContent =
@@ -131,6 +133,7 @@ async function boot() {
       flow : solver.flow,
       view,
       cameraMode : "free",
+      seed:solver.seed,
       position : navigation.position.toArray(),
       chunks : world.chunks.length,
       backend : 'CUDA WebShader / WebGPU',

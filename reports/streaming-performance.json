@@ -1,26 +1,26 @@
 {
   "baseline": {
-    "frames": 120,
-    "fps": 59.99999999999999,
-    "p95": 22.200000000000728,
-    "max": 22.299999999999272
+    "frames": 121,
+    "fps": 59.99900828085495,
+    "p95": 16.80000000000291,
+    "max": 16.80000000000291
   },
   "streaming": {
     "intervals": {
-      "frames": 288,
-      "fps": 59.99999999999999,
-      "p95": 22.299999999999272,
-      "max": 27.899999999997817
+      "frames": 299,
+      "fps": 59.999197335152594,
+      "p95": 16.79999999998836,
+      "max": 16.80000000000291
     },
     "longTasks": [],
     "stats": {
       "poolSize": 10,
       "completed": 1,
-      "preparationBatches": 284,
-      "maxPreparationCpuMs": 0.20000000298023224
+      "preparationBatches": 298,
+      "maxPreparationCpuMs": 0.10000000149011612
     },
-    "buffersBefore": 90,
-    "buffersAfter": 90,
+    "buffersBefore": 92,
+    "buffersAfter": 92,
     "ready": true
   },
   "errors": []
