@@ -18,16 +18,4 @@ try {
  if(errors.length||!streaming.ready||streaming.buffersAfter!==streaming.buffersBefore||streaming.stats.completed<1)throw Error('Streaming regression');
  if(result.baseline.fps>61||result.streaming.intervals.fps>61)throw Error('60 FPS cap exceeded');
  await page.screenshot({path:'reports/streaming-performance.png'});
- const environment=await page.evaluate(async()=>{
-  const sky=await river.runtime.read(river.solver.Sky,Uint32Array),canopy=await river.runtime.read(river.solver.Canopy,Uint32Array);
-  const colors=new Set();for(let i=0;i<sky.length;i+=31)colors.add(sky[i]);
-  let clear=0,solid=0;for(const pixel of canopy){if((pixel>>>24)<10)clear++;if((pixel>>>24)>180)solid++;}
-  return {skyColors:colors.size,canopyClearPixels:clear,canopySolidPixels:solid};
- });
- if(environment.skyColors<100||environment.canopyClearPixels<100||environment.canopySolidPixels<100)throw Error('CUDA environment texture is empty');
- console.log(JSON.stringify({environment}));
- await page.evaluate(()=>{river.navigation.position.set(8,23,115);river.navigation.pitch=.20;});
- await page.waitForTimeout(200);await page.screenshot({path:'reports/v02-sky.png'});
- await page.evaluate(()=>{river.navigation.position.set(6,19,94);river.navigation.pitch=-.30;});
- await page.waitForTimeout(200);await page.screenshot({path:'reports/v02-overview.png'});
 } finally {await browser.close();}

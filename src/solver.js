@@ -1,12 +1,11 @@
 import {GpuRuntime} from '../vendor/cuda-webshader/runtime/runtime.js';
-export const TREE_COUNT = 180;
 export const SPRAY_COUNT = 56 * 64;
 export const GRID = {
-  nx : 257,
+  nx : 193,
   nz : 441,
-  x0 : -64,
+  x0 : -48,
   z0 : 0,
-  dx : 128 / 256,
+  dx : 96 / 192,
   dz : 110 / 440
 };
 export const ENTRIES = [
@@ -15,21 +14,20 @@ export const ENTRIES = [
   'transport',       'commitTransport', 'riverFoam',       'reconstructRiver',
   'publishRiver',    'terrainVertices', 'treeInstances',   'waterfallSpray',
   'generateNoise',   'rockVertices',    'foliageVertices', 'bankVertices',
-  'rockWetness',     'captureEdges',    'connectEdges',    'adjustFlow',
-  'generateSky',     'generateCanopy'
+  'rockWetness',     'captureEdges',    'connectEdges',    'adjustFlow'
 ];
 export class RiverSolver {
-  static async create(device, seed = 1741) {
+  static async create(device) {
     const runtime = await GpuRuntime.create({device, uniformCapacity : 262144});
     const source = (await Promise.all([
-                     'coastal-kernels.cu', 'river.cu', 'impacts.cu', 'sky.cu'
+                     'coastal-kernels.cu', 'river.cu', 'impacts.cu'
                    ].map(async f => (await fetch('src/' + f)).text())))
                        .join('\n');
     const kernels = {};
     for (const entry of ENTRIES)
       kernels[entry] =
           await runtime.kernel(source, {entry, workgroupSize : [ 128, 1, 1 ]});
-    return new RiverSolver(runtime, kernels, 0, seed);
+    return new RiverSolver(runtime, kernels);
   }
   constructor(runtime, kernels, sectionId = 0, seed = 1741) {
     this.sectionId = sectionId;
@@ -96,10 +94,9 @@ export class RiverSolver {
     add('initializeRiver', this.n, {}, true);
     add('rockWetness', 105, {reset : 1});
     add('terrainVertices', 341 * 221, {cols : 341, rows : 221}, true);
-    add('treeInstances', TREE_COUNT, {count : TREE_COUNT});
+    add('treeInstances', 100, {count : 100});
     add('rockVertices', 105 * 65 * 25, {count : 105 * 65 * 25}, true);
-    add('foliageVertices', TREE_COUNT * 96 * 4, {count : TREE_COUNT * 96 * 4},
-        true);
+    add('foliageVertices', 100 * 96 * 4, {count : 100 * 96 * 4}, true);
     add('bankVertices', 2400 * 3 * 4, {count : 2400 * 3 * 4}, true);
     return jobs;
   }

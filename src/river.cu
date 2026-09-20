@@ -20,16 +20,15 @@ __device__ float riverCenter(const float *World, float z) {
   float p = World[1] + z / 110.0f;
   int b = (int)floorf(p);
   float t = p - (float)b, f = t * t * (3.0f - 2.0f * t);
-  return (boundaryRandom(World, b, 1) * 2.0f - 1.0f) * 23.0f * (1.0f - f) +
-         (boundaryRandom(World, b + 1, 1) * 2.0f - 1.0f) * 23.0f * f;
+  return (boundaryRandom(World, b, 1) * 2.0f - 1.0f) * 12.0f * (1.0f - f) +
+         (boundaryRandom(World, b + 1, 1) * 2.0f - 1.0f) * 12.0f * f;
 }
 __device__ float riverWidth(const float *World, float z) {
   float p = World[1] + z / 110.0f;
   int b = (int)floorf(p);
   float t = p - (float)b, f = t * t * (3.0f - 2.0f * t);
-  float a = boundaryRandom(World, b, 2), c = boundaryRandom(World, b + 1, 2);
-  float wa = 5.5f + powf(a, 2.2f) * 15.5f, wc = 5.5f + powf(c, 2.2f) * 15.5f;
-  return wa * (1.0f - f) + wc * f;
+  return 8.0f + 4.0f * (boundaryRandom(World, b, 2) * (1.0f - f) +
+                        boundaryRandom(World, b + 1, 2) * f);
 }
 __device__ float forkAmount(const float *World, float z) {
   float p = World[1] + z / 110.0f;
@@ -57,39 +56,19 @@ __device__ float channelDistance(const float *World, float x, float z) {
              ? fminf(d, branch + (1.0f - smooth(.015f, .3f, fork)) * 20.0f)
              : d;
 }
-// Section styles: 30% long shallow rapids, 22% concentrated plunge, remainder
-// cascades.
-__device__ float reachStyle(const float *World) {
-  return randomRiver(World, 982);
-}
 __device__ float ledgeStart(const float *World, int tier, float x) {
-  float gentle = reachStyle(World) < .30f ? 1.0f : 0.0f;
-  float base = gentle > 0.0f ? (15.0f + (float)tier * 30.0f)
-                             : (25.0f + (float)tier * 28.0f);
-  return base + randomRiver(World, 901 + tier) * (gentle > 0.0f ? 3.0f : 8.0f) +
+  float base = tier == 0 ? 25.0f : tier == 1 ? 55.0f : 81.0f;
+  return base + randomRiver(World, 901 + tier) * 9.0f +
          2.0f * sinf(x * .19f + randomRiver(World, 941 + tier) * 6.28f);
 }
 __device__ float ledgeWidth(const float *World, int tier, float x) {
-  float style = reachStyle(World);
-  return style < .30f   ? 19.0f + randomRiver(World, 951 + tier) * 5.0f
-         : style > .78f ? 1.8f + randomRiver(World, 951 + tier) * 1.5f
-                        : 4.0f + randomRiver(World, 951 + tier) * 5.0f;
+  return 3.0f + randomRiver(World, 951 + tier) * 4.0f +
+         .65f * sinf(x * .25f + (float)tier);
 }
 __device__ float ledgeHeight(const float *World, int tier) {
-  if (reachStyle(World) > .78f) {
-    int major = (int)(randomRiver(World, 983) * 3.0f);
-    return tier == major ? 6.2f : .4f;
-  }
   float a = .3f + randomRiver(World, 961), b = .3f + randomRiver(World, 962),
         c = .3f + randomRiver(World, 963);
   return 7.0f * (tier == 0 ? a : tier == 1 ? b : c) / (a + b + c);
-}
-__device__ float channelDepth(const float *World, float z) {
-  float p = World[1] + z / 110.0f;
-  int b = (int)floorf(p);
-  float t = p - (float)b, f = t * t * (3.0f - 2.0f * t);
-  return .38f + 1.25f * (boundaryRandom(World, b, 84) * (1.0f - f) +
-                         boundaryRandom(World, b + 1, 84) * f);
 }
 __device__ float riverDatum(const float *World, float x, float z) {
   float y = -z / 110.0f;
@@ -115,11 +94,7 @@ __device__ float terrainNoise(const float *World, float x, float z) {
 }
 __device__ float riverGround(const float *World, float x, float z) {
   float d = fmaxf(0.0f, channelDistance(World, x, z) + .9f);
-  return riverDatum(World, x, z) - channelDepth(World, z) +
-         powf(d, 1.10f) * .70f *
-             (1.0f - smooth(8.0f, 45.0f, d) * .30f) +
-         smooth(8.0f, 26.0f, d) *
-             terrainNoise(World, x * .43f + 53.0f, z) * 2.1f +
+  return riverDatum(World, x, z) - 1.15f + powf(d, .82f) * .83f +
          terrainNoise(World, x, z) * fminf(1.0f, d * .22f);
 }
 // Same immutable rock descriptors feed both the solver and the visible
@@ -279,7 +254,7 @@ __global__ void riverFoam(const float *World, float *S, float *Aux, int nx,
   float speed = fabsf(S[4 * n + k]);
   float source = smooth(.12f, .7f, slope) * smooth(1.0f, 3.5f, speed) *
                  smooth(.02f, .3f, h);
-  float x = -64.0f + (float)(k % nx) * 128.0f / (float)(nx - 1),
+  float x = -48.0f + (float)(k % nx) * 96.0f / (float)(nx - 1),
         z = (float)j * dz;
   for (int tier = 0; tier < 3; tier++) {
     float landing =
@@ -302,7 +277,7 @@ __global__ void reconstructRiver(const float *World, const float *S, float *Eta,
   if (k >= n)
     return;
   int i = k % nx, j = k / nx;
-  float x = -64.0f + (float)i * 128.0f / (float)(nx - 1);
+  float x = -48.0f + (float)i * 96.0f / (float)(nx - 1);
   float localDatum = riverDatum(World, x, (float)j * dz);
   float e = S[k] + S[2 * n + k];
   // Dry vertices must continue the water sheet UNDER the obstacle, not climb
@@ -317,7 +292,7 @@ __global__ void reconstructRiver(const float *World, const float *S, float *Eta,
         int q = nj * nx + ni;
         if (S[2 * n + q] > .08f) {
           float datumQ =
-              riverDatum(World, -64.0f + (float)ni * 128.0f / (float)(nx - 1),
+              riverDatum(World, -48.0f + (float)ni * 96.0f / (float)(nx - 1),
                          (float)nj * dz);
           total += S[q] + S[2 * n + q] - datumQ;
           weight += 1.0f;
@@ -331,7 +306,7 @@ __global__ void reconstructRiver(const float *World, const float *S, float *Eta,
   float z = (float)j * dz;
   float seam = smooth(0.0f, 4.0f, z) * (1.0f - smooth(106.0f, 110.0f, z));
   float datum =
-      riverDatum(World, -64.0f + (float)i * 128.0f / (float)(nx - 1), z);
+      riverDatum(World, -48.0f + (float)i * 96.0f / (float)(nx - 1), z);
   // No datum reset here: neighboring edge cells carry the same live elevation.
   // Small dispersive detail supplements, rather than replaces, simulated depth.
   float current = 3.2f * flow;
@@ -358,14 +333,7 @@ __global__ void publishRiver(const float *World, const float *S,
   Surface[k * 16] = x0 + (float)i * dx;
   Surface[k * 16 + 1] = Eta[k];
   Surface[k * 16 + 2] = (float)j * dz;
-  // Short exposure filter follows the local current in CUDA, not a screen blur.
-  int si=S[3*n+k]>.6f?1:S[3*n+k]<-.6f?-1:0;
-  int sj=S[4*n+k]>.6f?2:S[4*n+k]<-.6f?-2:0;
-  int qa=max(0,min(nz-1,j+sj))*nx+max(0,min(nx-1,i+si));
-  int qb=max(0,min(nz-1,j-sj))*nx+max(0,min(nx-1,i-si));
-  float softFoam=S[5*n+k]*.5f+(S[5*n+qa]+S[5*n+qb])*.25f;
-  if(j==0||j==nz-1)softFoam=S[5*n+k];
-  Surface[k*16+3]=cap(softFoam+S[6*n+k]*.45f,0.0f,1.0f);
+  Surface[k * 16 + 3] = cap(S[5 * n + k] + S[6 * n + k] * .45f, 0.0f, 1.0f);
   Surface[k * 16 + 4] = -gx;
   Surface[k * 16 + 5] = 1.0f;
   Surface[k * 16 + 6] = -gz;
@@ -532,11 +500,10 @@ __global__ void foliageVertices(const float *World, const float *Trees,
   int card = k / 4, corner = k % 4, t = card / 96, b = card % 96, layer = b / 8;
   float h = Trees[t * 4 + 3], rnd = randomRiver(World, card * 5 + 8),
         theta = (float)(b % 8) * .78539816f + (float)layer * 2.4f +
-                randomRiver(World, t + 41) * 6.28f +
-                (randomRiver(World, card + 1721) - .5f) * .5f;
+                randomRiver(World, t + 41) * 6.28f;
   float species = randomRiver(World, t + 11041),
         crownBase = .10f + randomRiver(World, t + 11042) * .28f;
-  float f = crownBase + ((float)layer + randomRiver(World, card + 1761) * .7f) * (1.0f - crownBase) / 12.0f,
+  float f = crownBase + (float)layer * (1.0f - crownBase) / 12.0f,
         radius = h * powf(1.0f - f, .6f + species * .8f) *
                  (.16f + species * .23f) *
                  (.75f + randomRiver(World, card * 5 + 1) * .5f);
