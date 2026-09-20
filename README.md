@@ -1,0 +1,86 @@
+# Mountain River
+
+**v01** · [Live GitHub Pages scene](https://samg-coder.github.io/MountainRIver/) · [Release](https://github.com/SamG-Coder/MountainRIver/releases/tag/v01)
+
+An endless 3D river scene built from the CUDA WebShader water pipeline in `D:\coastal-simulation`.
+
+## Run
+
+```powershell
+cd D:\MountainRIver
+npm install
+npm start
+```
+
+Open http://localhost:5175 in a WebGPU-capable browser with hardware acceleration. No CUDA Toolkit or native executable is required. Like the reference, CUDA source is compiled into WGSL and executes on WebGPU. This is not native NVIDIA CUDA execution.
+
+## What is in CUDA
+
+- `src/coastal-kernels.cu` is the reference's finite-volume water solver (with its velocity bound raised from 5 to 9 m/s for river rapids): staggered velocity advection, gravity/pressure forces, face fluxes, outgoing-volume limits, depth integration, transported foam and breaking turbulence.
+- `src/river.cu` creates the riverbed and rock obstacles, initializes depth/current, imposes upstream/downstream boundary conditions, adds cascade-driven turbulence, reconstructs the visible surface, publishes normals/flow/foam, and publishes landing-zone aeration. `src/impacts.cu` maintains persistent particle birth, velocity, lifetime and fade state for 20 rock-contact emitters and 36 waterfall impact lanes. Droplets, short splashes and low-opacity mist have distinct sizes and lifetimes; emission requires wet flow.
+- The same file generates the visible terrain vertices, rock surfaces, tree and bank-plant placements, dense radial rock meshes, porous conifer branch cards and procedural material noise on the GPU. The rendered rocks and simulation use the same `riverRock`/`riverBed` functions.
+- `src/solver.js` compiles and dispatches kernels. Water evolves at fixed 120 Hz steps; foam/advection fields update at 30 Hz. Startup warms the flow for 3 simulated seconds.
+- `src/scene.js` is the Three.js WebGPU rasterization adapter: basic mesh topology, materials, shared storage buffers and instances. It does not calculate or upload evolving water fields. CUDA and Three share the same device and buffers.
+- `src/main.js` handles the camera, browser UI and frame scheduling.
+
+Each section has 193 × 441 simulation cells across a 96 m domain, 105 rock obstacles, three seeded cascades whose drops sum to 7 m, a 1 m grade per 110 m reach, and 3,584 GPU spray slots. `src/sections.js` prepares neighbors ahead of movement and retains their own GPU geometry, water, spray and wetness buffers. The nearest three sections simulate; farther cached sections retain their state until approached. A fixed pool of ten section slots is allocated and render pipelines are warmed behind the loading screen. Distant sections return their slots to the pool and regenerate deterministically on return (their old dynamic water state is not saved after eviction). During travel, CUDA scenery generation runs in batches of at most 4,096 vertices/cells, followed by two warm-up simulation steps per render frame. GPU completion gates preparation so it cannot flood the command queue.
+
+World seed 1741 and signed section location control terrain, rocks and cascades. Four-section watershed groups determine side channels that fork and rejoin. Shared boundary functions match the terrain and water elevation at neighboring section edges. Loaded neighbors exchange snapshot-based edge elevations, velocity and upwind foam on the GPU. Internal connections disable the independent reservoir reset; exposed ends retain reservoir boundaries. This boundary coupling is not a globally conservative flux solve across the entire world. The Flow control scales currents in cached sections too, and initialized current follows the main/branch channel tangent. Camera coordinates remain continuous through ordinary section crossings. A coordinated origin shift occurs only after traveling more than 32 sections from the current origin. Shadows follow the camera continuously.
+
+## Controls
+
+- Free flight is the default; the camera never moves without input. Drag to look, WASD or arrow keys to fly, Q/E to descend/ascend, Shift for 4x speed, and scroll to move along the view direction. There are no camera rails or terrain/altitude locks.
+- **Space** or **Pause water** pauses the simulation; the free camera remains fully usable.
+- **View** cycles River, Overlook and Waterline cameras.
+- **Flow** changes upstream current strength. Changes propagate through the simulation.
+- **Light** cycles Morning, Golden hour and Overcast.
+- **H** hides or restores the interface.
+
+Rendering is paced to a 60 FPS ceiling using animation-frame timestamps, independently of the fixed 120 Hz water solver. Slow frames do not trigger catch-up render bursts; the FPS indicator shows the measured rate. Startup does more preparation to avoid mesh allocation and shader compilation during travel.
+
+## Rendering and motion
+
+Water uses depth-sensitive refraction, Fresnel sky reflection, filtered sun glints, and broken foam filaments adapted from the reference. Rock materials use triplanar mineral detail, roughness changes at wet faces, and moss patches. Conifers and bank plants are CUDA-generated alpha-tested branch/blade cards, with directional shadows.
+
+The inlet current is 3.2 m/s at Flow 1 (previously 1.6). Rapids may reach the 9 m/s velocity bound. Two overlapping 0.85-second flow-map phases advect surface detail at the simulated velocity without accumulating long stretched streaks. Extra foam decay clears the wake faster; directional short waves and finer spray add fast surface breakup. The physical solver remains at 120 Hz, rather than applying a global fast-forward.
+
+## Water model and limits
+
+Water height and velocities respond to downhill gravity and rock obstacles. Foam is created by compression, impacts and steep fast flow, then carried by the velocity field. Small waves are additional surface detail; they do not replace depth simulation.
+
+As in the reference, the solver is a shallow-water heightfield, not a fully volumetric 3D fluid. The cascades follow steep bed ramps; overhangs and detached falling sheets are not simulated. Spray is a flow-dependent visual effect. Inflow and outflow exchange water with the domain deliberately. Only the interior/closed-domain flux test is expected to conserve total volume.
+
+There is no CPU solver or WebGL fallback. Rendering performs no full-state GPU readbacks and no recurring uploads of water/scenery arrays. Uniform parameters and camera transforms are submitted normally. Tests read back state explicitly.
+
+## Verification
+
+```powershell
+npm test
+npm run test:app
+```
+
+`npm test` compiles all 24 CUDA entry points. The browser test runs on Microsoft Edge WebGPU and checks real rendering, pause/resume, view/light/flow controls, a 1,100 km travel jump, finite GPU fields, lake-at-rest equilibrium, closed-domain wave propagation and volume conservation, free-camera idle/release/focus/boost/paused-water checks, spray layer/size variation and suppression without wet flow, and 30 simulated seconds across the minimum and maximum flow settings. It also checks that evolving field upload bytes remain zero.
+
+Evidence: `reports/validation.json`, `reports/river.png`, `reports/river-endless.png`, `reports/river-settled.png`.
+
+Attribution and component licenses are recorded in `CREDITS.md` and `LICENSE`.
+
+## Rock and bank variation
+
+CUDA derives a stable rock seed from its index and location, with independent rotation and proportions. Channel stones favor flatter/worn profiles; bank stones include angular blocks and wedges. Seeded asymmetry, fracture cuts and varied footprints are shared by rendering and the obstacle solver. Soil shading combines gravel patches, exposed earth, moss-toned cover and litter variation.
+
+`rockWetness` samples actual wet solver cells around each rock. Contact raises the damp reach; the stored reach and amount dry gradually. Rocks outside water contact start dry. There is no global water-height stripe applied to every rock. Validation also checks dry-bank rocks and a no-water test with zero false wetness.
+
+
+## Contact and section regression checks
+
+Dry surface vertices extrapolate the local water-level anomaly underneath obstacles, rather than tracing rock tops or borrowing another cascade's absolute elevation. Buried rock apron triangles are clipped; rock winding and perimeter normals face outward. Waterfall sheet shading is restricted to cascade slopes so a rock wake does not acquire a vertical white curtain. The renderer uses a single-sample depth buffer for refraction and section pipeline preparation.
+
+The browser validation includes exact adjacent terrain/water endpoint comparisons, deterministic rock regeneration, distinct neighboring rock layouts, and a camera crossing that preserves the existing simulation and wetness buffers.
+
+`node scripts/test-streaming.mjs` measures a real subsection load, frame-time percentiles, long main-thread tasks and stable GPU buffer count. Results are written to `reports/streaming-performance.json`.
+
+
+## Vegetation placement
+
+Trees and grass use a shared clearance check against both the main river and fork channels, water-level headroom and rock footprints. Live GPU water levels also mask submerged roots. Trees vary in seeded height, crown breadth, crown base and branch spread; bank plants mix fine grass blades and fern-like leaflets, with vein detail, color variation and dry tips. `scripts/vegetation-validation.mjs` checks generated roots against live water; `scripts/coupling-validation.mjs` verifies pressure/current/foam transfer at a section interface.

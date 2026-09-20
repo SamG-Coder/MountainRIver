@@ -1,0 +1,27 @@
+{
+  "baseline": {
+    "frames": 120,
+    "fps": 59.99999999999999,
+    "p95": 22.200000000000728,
+    "max": 22.299999999999272
+  },
+  "streaming": {
+    "intervals": {
+      "frames": 288,
+      "fps": 59.99999999999999,
+      "p95": 22.299999999999272,
+      "max": 27.899999999997817
+    },
+    "longTasks": [],
+    "stats": {
+      "poolSize": 10,
+      "completed": 1,
+      "preparationBatches": 284,
+      "maxPreparationCpuMs": 0.20000000298023224
+    },
+    "buffersBefore": 90,
+    "buffersAfter": 90,
+    "ready": true
+  },
+  "errors": []
+}

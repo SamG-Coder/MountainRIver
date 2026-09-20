@@ -1,0 +1,3 @@
+import {chromium} from 'playwright';
+const b=await chromium.launch({channel:'msedge',headless:true});const p=await b.newPage({viewport:{width:1500,height:950}});p.on('console',m=>{if(m.type()==='error')console.log(m.text())});p.on('pageerror',e=>console.log(String(e)));await p.goto('http://localhost:5175/');await p.waitForFunction(()=>window.river?.ready||!document.querySelector('#error').hidden,null,{timeout:120000});console.log(await p.evaluate(()=>window.river?.snapshot()||document.querySelector('#error').textContent));await p.waitForTimeout(2000);await p.screenshot({path:'reports/artifact-fix.png'});console.log(await p.evaluate(()=>river.snapshot()));await b.close();
+
